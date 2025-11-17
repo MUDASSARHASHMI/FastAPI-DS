@@ -1,5 +1,10 @@
 from enum import Enum
-from fastapi import FastAPI, Path, Query, Body
+from fileinput import filename
+
+
+
+from fastapi import FastAPI, Path, Query, Body, Form, File, UploadFile, Header, Cookie, Request
+
 from pydantic import BaseModel
 app = FastAPI()
 
@@ -118,4 +123,55 @@ async def single_value_user(user: User, company: Company, priority: int = Body(.
     return {"user": user, "company": company, "priority": priority}
 
 # Form data and file uploads with FastAPI
-# Uses package python-multipart
+# Uses package python-multipart.
+@app.post("/user-form")
+async def user_form(name: str = Form(...), age: int = Form(...)):
+    return {"name" : name, "age": age }
+# To test form data
+# http -v --form POST http://localhost:8000/users name=John age=30
+
+# File upload
+@app.post("/upload")
+async def file_upload(file: bytes = File(...)):
+    return {"file_size": len(file)}
+# To test upload file endpoint
+# http --form POST http://localhost:8000/files file@./assets/cat.jpg
+"""This works with small files as these small files will be loaded
+in cache but for large files it will run out of cache and it needs
+to be redirected to the disk space."""
+# Upload file function with proper cache management
+@app.post("/file-upload")
+async def upload_file(file: UploadFile = File(...)):
+    return {"file_name": file.filename,
+            "content_type": file.content_type}
+# Create an asset folder and run below
+# http --form POST http://localhost:8000/files file@./assets/cat.jpg
+# Adding multiple files upload with "list" type hinting
+@app.post("/multiple-files/")
+async def multipl_uploads(files: list[UploadFile] = File(...)):
+    return [{"filename": file.filename, "content-type": file.content_type} for file in files]
+
+""" Headers contain all the metadata of a request contained with HTTP
+and we need to use these metadata for authentication purpose using 
+cookies."""
+
+# Using metadata "Header"
+# @app.get("/")
+# async def get_header_data(hello: str = Header(...)):
+#     return {"hello": hello}
+# User Agent calling
+@app.get("/user-agent")
+async def get_header(user_agent: str = Header(...)):
+    return {"user_agent": user_agent}
+
+@app.get("/")
+async def get_cookies(hello: str | None = Cookie(None)):
+    return {"Hello": hello}
+# Request Object
+"""Sometimes we need to access raw data associated to an object
+and that is possible."""
+@app.get("/")
+async def get_request_object(request: Request):
+    return {"path": request.url.path}
+"""Under the hood this is the request object from Starlette library
+that provides all core logic for FastAPI. """
